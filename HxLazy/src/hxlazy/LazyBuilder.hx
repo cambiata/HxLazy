@@ -13,26 +13,12 @@ using Lambda;
    public static function build():Array<Field>
    {
         var originalFields = Context.getBuildFields();
-	var newFields:Array<Field> = [];
-	
-	for (f in originalFields)
-	{
-		var found = false;
-
-		if (f.meta != null) 
-			for (m in f.meta)
-			{
-				if (m.name == "lazy")
-				{
-					found = true;
-					newFields = newFields.concat(createLazyFields(f));
-					break;
-				}
-			}
-		if (!found) newFields.push(f);
-	}
-	
-        return newFields;
+	var resultFields:Array<Field> = [];
+	var lazyFields = originalFields.filter(function(f) return f.meta.exists(function(m) return m.name == 'lazy'));
+	var nonLazyFields = originalFields.filter(function(f) return !lazyFields.has(f));
+	lazyFields.iter(function(f) resultFields = resultFields.concat(createLazyFields(f)));
+	nonLazyFields.iter(function(f) resultFields = resultFields.concat([f]));
+        return resultFields;	   
    }
    
    static private function createLazyFields(f:Field):Array<Field> 
