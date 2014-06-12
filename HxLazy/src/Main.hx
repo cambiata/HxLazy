@@ -1,5 +1,5 @@
 import hxlazy.Lazy;
-
+using Lambda;
 class Main
 {
 	static function main()
@@ -9,6 +9,8 @@ class Main
 		trace(t.sum);
 		trace(t.helloWorld);
 		trace(t.helloWorld);
+		trace(t.getTestfloat());
+		
 	}
 }
  
@@ -28,5 +30,13 @@ class TestLazy implements Lazy
 		trace('Init helloWorld - should only be traced once');
 		return msg;
 	}
-		
+
+	@lazyGet public function testfloat():Float
+	{
+		trace('Init testFloat - should only be traced once');
+		return 1.2 + 3.4;
+	}
+	
+	
+	
 }
