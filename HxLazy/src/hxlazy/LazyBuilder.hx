@@ -9,20 +9,23 @@ using Lambda;
 
  class LazyBuilder 
 {
-	
 	static var LAZY = 'lazy';
-	static var LAZY_GET= 'lazyGet';
+	static var LAZY_GET = 'lazyGet';
+	static var LAZY_PRIVATE_PREFIX = '__lazy';
 	
 	public static function build():Array<Field>
 	{
 		var originalFields = Context.getBuildFields();
 		var resultFields:Array<Field> = [];
+		
 		var lazyFields = originalFields.filter(function(f) return f.meta.exists(function(m) return m.name == LAZY));
 		var lazyGetFields = originalFields.filter(function(f) return f.meta.exists(function(m) return m.name == LAZY_GET));
 		var nonLazyFields = originalFields.filter(function(f) return ! lazyFields.has(f) && ! lazyGetFields.has(f));
+		
 		nonLazyFields.iter(function(f) resultFields.push(f));
 		lazyFields.iter(function(f) resultFields = resultFields.concat(createLazyFields(f, LAZY)));
 		lazyGetFields.iter(function(f) resultFields = resultFields.concat(createLazyFields(f, LAZY_GET)));
+		
 		return resultFields;
 	}
 
@@ -30,7 +33,8 @@ using Lambda;
 	{
 		var lazyfields:Array<Field> = [];
 		var fieldName = f.name;
-		var fieldType = switch f.kind {
+		var fieldType = switch f.kind 
+		{
 			case FFun(f2): f2.ret;
 			case _: 
 				Context.warning("The 'lazy' meta...", f.pos);
@@ -43,7 +47,7 @@ using Lambda;
 			case _: return [f];
 		}
 		
-		var privateFieldName = '__lazy' + fieldName;
+		var privateFieldName = LAZY_PRIVATE_PREFIX + fieldName;
 		var nullField = TPath( { name:'Null', pack:[], params:[TPType(fieldType)] } );
 		lazyfields.push({
 			name: privateFieldName,
@@ -83,28 +87,30 @@ using Lambda;
 		});
 
 		return lazyfields;
-	}
-   
+	}   
+	
 	static private function createLazyGetter(privateFieldName:String, functionBody:Expr) : Function
 	{
-		 var replaceReturnValue:Expr -> Void;
-		 replaceReturnValue = function(e:Expr) {
-			 switch e {
-				 case macro return $retval: 
+		var replaceReturnValue:Expr -> Void;
+		replaceReturnValue = function(e:Expr) {
+			switch e {
+				case macro return $retval:
 					var change = macro return $i{privateFieldName} = $retval;
 					e.expr = change.expr;
 				case _: e.iter(replaceReturnValue);
-			 }
-		 }
+			}
+		}
 
-		 functionBody.iter(replaceReturnValue);
+		functionBody.iter(replaceReturnValue);
 
-		 switch functionBody.expr {
-			 case EBlock(exprs): 
-				 exprs.unshift(macro if ( $i { privateFieldName } != null) return $i { privateFieldName } );
-			// case OBS hantera fall där metoden saknar block!
-			case _: 
-		 }
+		switch functionBody.expr {
+			case EBlock(exprs):
+				exprs.unshift(macro if ( $i { privateFieldName } != null) return $i { privateFieldName } );
+			case EReturn(expr):
+				var xpr  = macro if ( $i { privateFieldName } != null) return $i { privateFieldName } else return $i { privateFieldName } = $expr ;
+				functionBody.expr = EReturn(xpr); 
+			case _:
+		}
 
 		var result = {
 			ret: null,
@@ -112,7 +118,7 @@ using Lambda;
 			expr: functionBody,
 			args: []
 		}
-		   
-		return result;  
-	}
+
+		return result;
+	}	
 }
